@@ -1,3 +1,17 @@
 spring:
   application:
     name: backend
+    version: 1.0.0
+
+  datasource:
+    url: jdbc:sqlite:codesync.db
+    driver-class-name: org.sqlite.JDBC
+
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+
+  flyway:
+    enabled: false
