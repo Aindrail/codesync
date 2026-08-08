@@ -51,6 +51,38 @@ public final class CodingSession {
         );
     }
 
+    public static CodingSession reconstitute(
+            SessionId sessionId,
+            PlatformProblem problem,
+            SessionStatus status,
+            Instant startedAt,
+            Instant endedAt) {
+
+        if (sessionId == null) {
+            throw new IllegalArgumentException("Session ID cannot be null.");
+        }
+
+        if (problem == null) {
+            throw new IllegalArgumentException("Problem cannot be null.");
+        }
+
+        if (status == null) {
+            throw new IllegalArgumentException("Status cannot be null.");
+        }
+
+        if (startedAt == null) {
+            throw new IllegalArgumentException("Started time cannot be null.");
+        }
+
+        return new CodingSession(
+                sessionId,
+                problem,
+                status,
+                startedAt,
+                endedAt
+        );
+    }
+
     public void complete() {
 
         if (status != SessionStatus.ACTIVE) {
@@ -103,4 +135,5 @@ public final class CodingSession {
     public Instant endedAt() {
         return endedAt;
     }
+
 }
