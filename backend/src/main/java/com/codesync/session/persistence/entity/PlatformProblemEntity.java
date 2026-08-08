@@ -61,6 +61,9 @@ public class PlatformProblemEntity extends BaseEntity {
     protected PlatformProblemEntity() {
         // Required by JPA
     }
+    public static PlatformProblemEntity create(){
+        return new PlatformProblemEntity();
+    }
 
     public Long getId() {
         return id;
