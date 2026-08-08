@@ -57,6 +57,9 @@ public class CodingSessionEntity extends BaseEntity {
     protected CodingSessionEntity() {
         // Required by JPA
     }
+    public static CodingSessionEntity create(){
+        return new CodingSessionEntity();
+    }
 
     public Long getId() {
         return id;

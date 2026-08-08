@@ -56,6 +56,9 @@ public class SubmissionAttemptEntity extends BaseEntity {
     protected SubmissionAttemptEntity() {
         // Required by JPA
     }
+    public static  SubmissionAttemptEntity create() {
+        return new SubmissionAttemptEntity();
+    }
 
     public Long getId() {
         return id;
