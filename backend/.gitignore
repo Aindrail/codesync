@@ -34,3 +34,6 @@ build/
 
 ###CodeSync database file
 codesync.db
+codesync-test.db
+
+src/main/java/com/codesync/domain - Shortcut.lnk

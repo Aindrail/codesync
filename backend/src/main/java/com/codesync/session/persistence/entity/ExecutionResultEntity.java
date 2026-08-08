@@ -34,6 +34,9 @@ public class ExecutionResultEntity extends BaseEntity {
     protected ExecutionResultEntity() {
         // Required by JPA
     }
+    public static ExecutionResultEntity create() {
+        return new ExecutionResultEntity();
+    }
 
     public Long getId() {
         return id;

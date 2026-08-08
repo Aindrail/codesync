@@ -30,6 +30,9 @@ public class SolutionEntity extends BaseEntity {
     protected SolutionEntity() {
         // Required by JPA
     }
+    public static SolutionEntity create() {
+        return new SolutionEntity();
+    }
 
     public Long getId() {
         return id;
