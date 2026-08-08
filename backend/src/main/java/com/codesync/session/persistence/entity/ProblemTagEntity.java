@@ -32,6 +32,9 @@ public class ProblemTagEntity extends BaseEntity {
     protected ProblemTagEntity() {
         // Required by JPA
     }
+    public static ProblemTagEntity create() {
+        return new ProblemTagEntity();
+    }
 
     public Long getId() {
         return id;
