@@ -5,6 +5,7 @@ import com.codesync.session.domain.identifier.SessionId;
 import com.codesync.session.domain.repository.CodingSessionRepository;
 import com.codesync.session.persistence.entity.CodingSessionEntity;
 import com.codesync.session.persistence.entity.PlatformProblemEntity;
+import com.codesync.session.persistence.entity.UserEntity;
 import com.codesync.session.persistence.mapper.CodingSessionMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,15 +19,34 @@ public class CodingSessionRepositoryAdapter
 
     private final CodingSessionJpaRepository jpaRepository;
     private final CodingSessionMapper mapper;
-    private final PlatformProblemJpaRepository platformProblemJpaRepository;
+    private final PlatformProblemJpaRepository
+            platformProblemJpaRepository;
+    private final UserJpaRepository userJpaRepository;
+
+    public CodingSessionRepositoryAdapter(
+            CodingSessionJpaRepository jpaRepository,
+            CodingSessionMapper mapper,
+            PlatformProblemJpaRepository platformProblemJpaRepository,
+            UserJpaRepository userJpaRepository) {
+
+        this.jpaRepository = jpaRepository;
+        this.mapper = mapper;
+        this.platformProblemJpaRepository =
+                platformProblemJpaRepository;
+        this.userJpaRepository =
+                userJpaRepository;
+    }
+
     @Override
     @Transactional(readOnly = true)
-    public Optional<CodingSession> findActiveByProblem(
+    public Optional<CodingSession> findActiveByUserAndProblem(
+            Long userId,
             String platform,
             String platformProblemId) {
 
         return jpaRepository
-                .findByProblem_PlatformAndProblem_PlatformProblemIdAndStatus(
+                .findByUser_IdAndProblem_PlatformAndProblem_PlatformProblemIdAndStatus(
+                        userId,
                         platform,
                         platformProblemId,
                         "ACTIVE"
@@ -34,30 +54,25 @@ public class CodingSessionRepositoryAdapter
                 .map(mapper::toDomain);
     }
 
-    public CodingSessionRepositoryAdapter(
-            CodingSessionJpaRepository jpaRepository,
-            CodingSessionMapper mapper,
-            PlatformProblemJpaRepository platformProblemJpaRepository) {
-
-        this.jpaRepository = jpaRepository;
-        this.mapper = mapper;
-        this.platformProblemJpaRepository =
-                platformProblemJpaRepository;
-    }
-
     @Override
-    public CodingSession save(CodingSession session) {
+    public CodingSession save(
+            CodingSession session) {
 
         CodingSessionEntity entity =
                 jpaRepository
-                        .findBySessionId(session.sessionId().value())
+                        .findBySessionId(
+                                session.sessionId().value()
+                        )
                         .orElse(null);
 
         PlatformProblemEntity problemEntity =
                 platformProblemJpaRepository
                         .findByPlatformProblemIdAndPlatform(
-                                session.problem().platformProblemId(),
-                                session.problem().platform().name()
+                                session.problem()
+                                        .platformProblemId(),
+                                session.problem()
+                                        .platform()
+                                        .name()
                         )
                         .orElseThrow(() ->
                                 new IllegalStateException(
@@ -65,14 +80,28 @@ public class CodingSessionRepositoryAdapter
                                 )
                         );
 
+        UserEntity userEntity =
+                userJpaRepository
+                        .findById(
+                                session.user().id()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "User must exist before saving a coding session."
+                                )
+                        );
+
         if (entity == null) {
 
             entity = mapper.toEntity(
                     session,
-                    problemEntity
+                    problemEntity,
+                    userEntity
             );
 
         } else {
+
+            entity.setUser(userEntity);
 
             entity.setProblem(problemEntity);
 
@@ -101,7 +130,9 @@ public class CodingSessionRepositoryAdapter
             SessionId sessionId) {
 
         return jpaRepository
-                .findBySessionId(sessionId.value())
+                .findBySessionId(
+                        sessionId.value()
+                )
                 .map(mapper::toDomain);
     }
 

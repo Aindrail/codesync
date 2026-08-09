@@ -1,10 +1,12 @@
 package com.codesync.session.persistence.repository;
 
 import com.codesync.session.domain.aggregate.CodingSession;
+import com.codesync.session.domain.entity.User;
 import com.codesync.session.domain.enumtype.Platform;
 import com.codesync.session.domain.enumtype.SessionStatus;
 import com.codesync.session.domain.repository.CodingSessionRepository;
 import com.codesync.session.domain.repository.PlatformProblemRepository;
+import com.codesync.session.domain.repository.UserRepository;
 import com.codesync.session.domain.valueobject.PlatformProblem;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,8 +30,16 @@ class CodingSessionRepositoryIntegrationTest {
     @Autowired
     private PlatformProblemRepository platformProblemRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Test
     void shouldSaveAndRetrieveCodingSession() {
+
+        User user =
+                userRepository.save(
+                        User.create("github-session-test-1001")
+                );
 
         PlatformProblem problem = new PlatformProblem(
                 "1001",
@@ -49,7 +59,10 @@ class CodingSessionRepositoryIntegrationTest {
                 platformProblemRepository.save(problem);
 
         CodingSession session =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         CodingSession savedSession =
                 codingSessionRepository.save(session);
@@ -58,6 +71,12 @@ class CodingSessionRepositoryIntegrationTest {
 
         assertThat(savedSession.sessionId())
                 .isEqualTo(session.sessionId());
+
+        assertThat(savedSession.user().id())
+                .isEqualTo(user.id());
+
+        assertThat(savedSession.user().githubUserId())
+                .isEqualTo("github-session-test-1001");
 
         assertThat(savedSession.problem().platformProblemId())
                 .isEqualTo("1001");
@@ -79,6 +98,12 @@ class CodingSessionRepositoryIntegrationTest {
         assertThat(retrieved.sessionId())
                 .isEqualTo(session.sessionId());
 
+        assertThat(retrieved.user().id())
+                .isEqualTo(user.id());
+
+        assertThat(retrieved.user().githubUserId())
+                .isEqualTo("github-session-test-1001");
+
         assertThat(retrieved.problem().title())
                 .isEqualTo("Test Problem");
 
@@ -91,6 +116,11 @@ class CodingSessionRepositoryIntegrationTest {
 
     @Test
     void shouldUpdateSessionWhenCompleted() {
+
+        User user =
+                userRepository.save(
+                        User.create("github-session-test-1002")
+                );
 
         PlatformProblem problem = new PlatformProblem(
                 "1002",
@@ -110,7 +140,10 @@ class CodingSessionRepositoryIntegrationTest {
                 platformProblemRepository.save(problem);
 
         CodingSession session =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         codingSessionRepository.save(session);
 
@@ -125,6 +158,9 @@ class CodingSessionRepositoryIntegrationTest {
         assertThat(updated.endedAt())
                 .isNotNull();
 
+        assertThat(updated.user().id())
+                .isEqualTo(user.id());
+
         CodingSession retrieved =
                 codingSessionRepository
                         .findBySessionId(session.sessionId())
@@ -133,12 +169,20 @@ class CodingSessionRepositoryIntegrationTest {
         assertThat(retrieved.status())
                 .isEqualTo(SessionStatus.COMPLETED);
 
+        assertThat(retrieved.user().id())
+                .isEqualTo(user.id());
+
         assertThat(retrieved.endedAt())
                 .isNotNull();
     }
 
     @Test
     void shouldDetectExistingSession() {
+
+        User user =
+                userRepository.save(
+                        User.create("github-session-test-1003")
+                );
 
         PlatformProblem problem = new PlatformProblem(
                 "1003",
@@ -158,18 +202,28 @@ class CodingSessionRepositoryIntegrationTest {
                 platformProblemRepository.save(problem);
 
         CodingSession session =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         codingSessionRepository.save(session);
 
         assertThat(
                 codingSessionRepository
-                        .existsBySessionId(session.sessionId())
+                        .existsBySessionId(
+                                session.sessionId()
+                        )
         ).isTrue();
     }
 
     @Test
     void shouldAllowMultipleCodingSessionsForSameProblem() {
+
+        User user =
+                userRepository.save(
+                        User.create("github-session-test-1004")
+                );
 
         PlatformProblem problem = new PlatformProblem(
                 "2001",
@@ -190,14 +244,20 @@ class CodingSessionRepositoryIntegrationTest {
 
         // First coding session
         CodingSession firstSession =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         CodingSession savedFirstSession =
                 codingSessionRepository.save(firstSession);
 
         // Second coding session for the SAME problem
         CodingSession secondSession =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         CodingSession savedSecondSession =
                 codingSessionRepository.save(secondSession);
@@ -206,12 +266,24 @@ class CodingSessionRepositoryIntegrationTest {
         assertThat(savedFirstSession.sessionId())
                 .isNotEqualTo(savedSecondSession.sessionId());
 
+        // Both sessions belong to the same user
+        assertThat(savedFirstSession.user().id())
+                .isEqualTo(savedSecondSession.user().id());
+
         // Both sessions must point to the same problem
         assertThat(savedFirstSession.problem().platformProblemId())
-                .isEqualTo(savedSecondSession.problem().platformProblemId());
+                .isEqualTo(
+                        savedSecondSession
+                                .problem()
+                                .platformProblemId()
+                );
 
         assertThat(savedFirstSession.problem().canonicalProblemKey())
-                .isEqualTo(savedSecondSession.problem().canonicalProblemKey());
+                .isEqualTo(
+                        savedSecondSession
+                                .problem()
+                                .canonicalProblemKey()
+                );
 
         // Both sessions are independent
         assertThat(savedFirstSession.status())
@@ -224,11 +296,15 @@ class CodingSessionRepositoryIntegrationTest {
         firstSession.complete();
 
         CodingSession updatedFirstSession =
-                codingSessionRepository.save(firstSession);
+                codingSessionRepository.save(
+                        firstSession
+                );
 
         CodingSession retrievedSecondSession =
                 codingSessionRepository
-                        .findBySessionId(secondSession.sessionId())
+                        .findBySessionId(
+                                secondSession.sessionId()
+                        )
                         .orElseThrow();
 
         // First session changed
@@ -241,10 +317,18 @@ class CodingSessionRepositoryIntegrationTest {
 
         assertThat(retrievedSecondSession.endedAt())
                 .isNull();
+
+        assertThat(retrievedSecondSession.user().id())
+                .isEqualTo(user.id());
     }
 
     @Test
     void shouldAbandonAndPersistCodingSession() {
+
+        User user =
+                userRepository.save(
+                        User.create("github-session-test-1005")
+                );
 
         PlatformProblem problem = new PlatformProblem(
                 "1004",
@@ -264,7 +348,10 @@ class CodingSessionRepositoryIntegrationTest {
                 platformProblemRepository.save(problem);
 
         CodingSession session =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         codingSessionRepository.save(session);
 
@@ -279,13 +366,21 @@ class CodingSessionRepositoryIntegrationTest {
         assertThat(saved.endedAt())
                 .isNotNull();
 
+        assertThat(saved.user().id())
+                .isEqualTo(user.id());
+
         CodingSession retrieved =
                 codingSessionRepository
-                        .findBySessionId(session.sessionId())
+                        .findBySessionId(
+                                session.sessionId()
+                        )
                         .orElseThrow();
 
         assertThat(retrieved.status())
                 .isEqualTo(SessionStatus.ABANDONED);
+
+        assertThat(retrieved.user().id())
+                .isEqualTo(user.id());
 
         assertThat(retrieved.endedAt())
                 .isNotNull();
@@ -293,6 +388,11 @@ class CodingSessionRepositoryIntegrationTest {
 
     @Test
     void shouldNotCompleteAlreadyCompletedSession() {
+
+        User user =
+                userRepository.save(
+                        User.create("github-session-test-1006")
+                );
 
         PlatformProblem problem = new PlatformProblem(
                 "1005",
@@ -312,18 +412,34 @@ class CodingSessionRepositoryIntegrationTest {
                 platformProblemRepository.save(problem);
 
         CodingSession session =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         session.complete();
 
-        assertThatThrownBy(session::complete)
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(
+                session::complete
+        )
+                .isInstanceOf(
+                        IllegalStateException.class
+                );
 
         assertThat(session.status())
                 .isEqualTo(SessionStatus.COMPLETED);
+
+        assertThat(session.user().id())
+                .isEqualTo(user.id());
     }
+
     @Test
     void shouldNotAbandonAlreadyCompletedSession() {
+
+        User user =
+                userRepository.save(
+                        User.create("github-session-test-1007")
+                );
 
         PlatformProblem problem = new PlatformProblem(
                 "1006",
@@ -343,16 +459,24 @@ class CodingSessionRepositoryIntegrationTest {
                 platformProblemRepository.save(problem);
 
         CodingSession session =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         session.complete();
 
-        assertThatThrownBy(session::abandon)
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(
+                session::abandon
+        )
+                .isInstanceOf(
+                        IllegalStateException.class
+                );
 
         assertThat(session.status())
                 .isEqualTo(SessionStatus.COMPLETED);
+
+        assertThat(session.user().id())
+                .isEqualTo(user.id());
     }
-
-
 }

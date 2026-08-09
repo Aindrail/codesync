@@ -2,6 +2,7 @@ package com.codesync.session.application;
 
 import com.codesync.session.domain.aggregate.CodingSession;
 import com.codesync.session.domain.entity.SubmissionAttempt;
+import com.codesync.session.domain.entity.User;
 import com.codesync.session.domain.enumtype.Platform;
 import com.codesync.session.domain.enumtype.ProgrammingLanguage;
 import com.codesync.session.domain.enumtype.SubmissionVerdict;
@@ -321,6 +322,12 @@ class RecordSubmissionAttemptServiceTest {
 
     private CodingSession createSession() {
 
+        User user =
+                User.reconstitute(
+                        1L,
+                        "github-record-submission-test"
+                );
+
         PlatformProblem problem =
                 new PlatformProblem(
                         "1",
@@ -336,7 +343,10 @@ class RecordSubmissionAttemptServiceTest {
                         "1"
                 );
 
-        return CodingSession.start(problem);
+        return CodingSession.start(
+                user,
+                problem
+        );
     }
 
     private SubmissionAttempt createAttempt(

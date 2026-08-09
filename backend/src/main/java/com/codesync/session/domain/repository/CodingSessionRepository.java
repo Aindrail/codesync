@@ -9,11 +9,17 @@ public interface CodingSessionRepository {
 
     CodingSession save(CodingSession session);
 
-    Optional<CodingSession> findBySessionId(SessionId sessionId);
-    Optional<CodingSession> findActiveByProblem(
+    Optional<CodingSession> findBySessionId(
+            SessionId sessionId
+    );
+
+    Optional<CodingSession> findActiveByUserAndProblem(
+            Long userId,
             String platform,
             String platformProblemId
     );
 
-    boolean existsBySessionId(SessionId sessionId);
+    boolean existsBySessionId(
+            SessionId sessionId
+    );
 }
