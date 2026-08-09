@@ -32,6 +32,14 @@ public class CodingSessionEntity extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
+            name = "user_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_session_user")
+    )
+    private UserEntity user;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
             name = "problem_id",
             nullable = false,
             foreignKey = @ForeignKey(name = "fk_session_problem")
@@ -52,12 +60,14 @@ public class CodingSessionEntity extends BaseEntity {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
-    private List<SubmissionAttemptEntity> submissionAttempts = new ArrayList<>();
+    private List<SubmissionAttemptEntity> submissionAttempts =
+            new ArrayList<>();
 
     protected CodingSessionEntity() {
         // Required by JPA
     }
-    public static CodingSessionEntity create(){
+
+    public static CodingSessionEntity create() {
         return new CodingSessionEntity();
     }
 
@@ -71,6 +81,14 @@ public class CodingSessionEntity extends BaseEntity {
 
     public void setSessionId(UUID sessionId) {
         this.sessionId = sessionId;
+    }
+
+    public UserEntity getUser() {
+        return user;
+    }
+
+    public void setUser(UserEntity user) {
+        this.user = user;
     }
 
     public PlatformProblemEntity getProblem() {
@@ -111,15 +129,20 @@ public class CodingSessionEntity extends BaseEntity {
 
     public void setSubmissionAttempts(
             List<SubmissionAttemptEntity> submissionAttempts) {
+
         this.submissionAttempts = submissionAttempts;
     }
 
-    public void addSubmissionAttempt(SubmissionAttemptEntity attempt) {
+    public void addSubmissionAttempt(
+            SubmissionAttemptEntity attempt) {
+
         submissionAttempts.add(attempt);
         attempt.setSession(this);
     }
 
-    public void removeSubmissionAttempt(SubmissionAttemptEntity attempt) {
+    public void removeSubmissionAttempt(
+            SubmissionAttemptEntity attempt) {
+
         submissionAttempts.remove(attempt);
         attempt.setSession(null);
     }

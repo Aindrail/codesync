@@ -9,13 +9,19 @@ import java.util.UUID;
 public interface CodingSessionJpaRepository
         extends JpaRepository<CodingSessionEntity, Long> {
 
-    Optional<CodingSessionEntity> findBySessionId(UUID sessionId);
+    Optional<CodingSessionEntity> findBySessionId(
+            UUID sessionId
+    );
+
     Optional<CodingSessionEntity>
-    findByProblem_PlatformAndProblem_PlatformProblemIdAndStatus(
+    findByUser_IdAndProblem_PlatformAndProblem_PlatformProblemIdAndStatus(
+            Long userId,
             String platform,
             String platformProblemId,
             String status
     );
 
-    boolean existsBySessionId(UUID sessionId);
+    boolean existsBySessionId(
+            UUID sessionId
+    );
 }

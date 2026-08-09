@@ -1,5 +1,6 @@
 package com.codesync.session.domain.aggregate;
 
+import com.codesync.session.domain.entity.User;
 import com.codesync.session.domain.enumtype.SessionStatus;
 import com.codesync.session.domain.identifier.SessionId;
 import com.codesync.session.domain.valueobject.PlatformProblem;
@@ -13,37 +14,49 @@ import java.time.Instant;
 public final class CodingSession {
 
     private final SessionId sessionId;
-
+    private final User user;
     private final PlatformProblem problem;
 
     private SessionStatus status;
 
     private final Instant startedAt;
-
     private Instant endedAt;
 
     private CodingSession(
             SessionId sessionId,
+            User user,
             PlatformProblem problem,
             SessionStatus status,
             Instant startedAt,
             Instant endedAt) {
 
         this.sessionId = sessionId;
+        this.user = user;
         this.problem = problem;
         this.status = status;
         this.startedAt = startedAt;
         this.endedAt = endedAt;
     }
 
-    public static CodingSession start(PlatformProblem problem) {
+    public static CodingSession start(
+            User user,
+            PlatformProblem problem) {
+
+        if (user == null) {
+            throw new IllegalArgumentException(
+                    "User cannot be null."
+            );
+        }
 
         if (problem == null) {
-            throw new IllegalArgumentException("Problem cannot be null.");
+            throw new IllegalArgumentException(
+                    "Problem cannot be null."
+            );
         }
 
         return new CodingSession(
                 SessionId.newId(),
+                user,
                 problem,
                 SessionStatus.ACTIVE,
                 Instant.now(),
@@ -53,29 +66,45 @@ public final class CodingSession {
 
     public static CodingSession reconstitute(
             SessionId sessionId,
+            User user,
             PlatformProblem problem,
             SessionStatus status,
             Instant startedAt,
             Instant endedAt) {
 
         if (sessionId == null) {
-            throw new IllegalArgumentException("Session ID cannot be null.");
+            throw new IllegalArgumentException(
+                    "Session ID cannot be null."
+            );
+        }
+
+        if (user == null) {
+            throw new IllegalArgumentException(
+                    "User cannot be null."
+            );
         }
 
         if (problem == null) {
-            throw new IllegalArgumentException("Problem cannot be null.");
+            throw new IllegalArgumentException(
+                    "Problem cannot be null."
+            );
         }
 
         if (status == null) {
-            throw new IllegalArgumentException("Status cannot be null.");
+            throw new IllegalArgumentException(
+                    "Status cannot be null."
+            );
         }
 
         if (startedAt == null) {
-            throw new IllegalArgumentException("Started time cannot be null.");
+            throw new IllegalArgumentException(
+                    "Started time cannot be null."
+            );
         }
 
         return new CodingSession(
                 sessionId,
+                user,
                 problem,
                 status,
                 startedAt,
@@ -86,7 +115,9 @@ public final class CodingSession {
     public void complete() {
 
         if (status != SessionStatus.ACTIVE) {
-            throw new IllegalStateException("Only active sessions can be completed.");
+            throw new IllegalStateException(
+                    "Only active sessions can be completed."
+            );
         }
 
         status = SessionStatus.COMPLETED;
@@ -96,7 +127,9 @@ public final class CodingSession {
     public void abandon() {
 
         if (status != SessionStatus.ACTIVE) {
-            throw new IllegalStateException("Only active sessions can be abandoned.");
+            throw new IllegalStateException(
+                    "Only active sessions can be abandoned."
+            );
         }
 
         status = SessionStatus.ABANDONED;
@@ -120,6 +153,10 @@ public final class CodingSession {
         return sessionId;
     }
 
+    public User user() {
+        return user;
+    }
+
     public PlatformProblem problem() {
         return problem;
     }
@@ -135,5 +172,4 @@ public final class CodingSession {
     public Instant endedAt() {
         return endedAt;
     }
-
 }

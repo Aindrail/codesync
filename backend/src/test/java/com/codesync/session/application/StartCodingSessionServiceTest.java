@@ -1,8 +1,10 @@
 package com.codesync.session.application;
 
 import com.codesync.session.domain.aggregate.CodingSession;
+import com.codesync.session.domain.entity.User;
 import com.codesync.session.domain.repository.CodingSessionRepository;
 import com.codesync.session.domain.repository.PlatformProblemRepository;
+import com.codesync.session.domain.repository.UserRepository;
 import com.codesync.session.domain.valueobject.PlatformProblem;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,11 +28,20 @@ class StartCodingSessionServiceTest {
     @Mock
     private CodingSessionRepository codingSessionRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private StartCodingSessionService service;
 
     @Test
     void shouldCreateNewSessionWhenNoActiveSessionExists() {
+
+        User user =
+                User.reconstitute(
+                        1L,
+                        "github-user-1"
+                );
 
         PlatformProblem problem =
                 createProblem();
@@ -43,14 +54,22 @@ class StartCodingSessionServiceTest {
                 .thenReturn(Optional.of(problem));
 
         when(codingSessionRepository
-                .findActiveByProblem(
+                .findActiveByUserAndProblem(
+                        1L,
                         "LEETCODE",
                         "1"
                 ))
                 .thenReturn(Optional.empty());
 
+        when(userRepository
+                .findById(1L))
+                .thenReturn(Optional.of(user));
+
         CodingSession newSession =
-                CodingSession.start(problem);
+                CodingSession.start(
+                        user,
+                        problem
+                );
 
         when(codingSessionRepository.save(any()))
                 .thenReturn(newSession);
@@ -58,6 +77,7 @@ class StartCodingSessionServiceTest {
         CodingSession result =
                 service.start(
                         new StartCodingSessionCommand(
+                                1L,
                                 "LEETCODE",
                                 "1"
                         )
@@ -68,21 +88,36 @@ class StartCodingSessionServiceTest {
         assertThat(result.problem())
                 .isEqualTo(problem);
 
+        assertThat(result.user())
+                .isEqualTo(user);
+
         assertThat(result.isActive())
                 .isTrue();
 
         verify(codingSessionRepository)
                 .save(any(CodingSession.class));
+
+        verify(userRepository)
+                .findById(1L);
     }
 
     @Test
     void shouldReturnExistingActiveSession() {
 
+        User user =
+                User.reconstitute(
+                        1L,
+                        "github-user-1"
+                );
+
         PlatformProblem problem =
                 createProblem();
 
         CodingSession existingSession =
-                CodingSession.start(problem);
+                CodingSession.start(
+                        user,
+                        problem
+                );
 
         when(platformProblemRepository
                 .findByPlatformProblemId(
@@ -92,7 +127,8 @@ class StartCodingSessionServiceTest {
                 .thenReturn(Optional.of(problem));
 
         when(codingSessionRepository
-                .findActiveByProblem(
+                .findActiveByUserAndProblem(
+                        1L,
                         "LEETCODE",
                         "1"
                 ))
@@ -101,6 +137,7 @@ class StartCodingSessionServiceTest {
         CodingSession result =
                 service.start(
                         new StartCodingSessionCommand(
+                                1L,
                                 "LEETCODE",
                                 "1"
                         )
@@ -111,16 +148,26 @@ class StartCodingSessionServiceTest {
 
         verify(codingSessionRepository, never())
                 .save(any(CodingSession.class));
+
+        /*
+         * User lookup is unnecessary because an existing
+         * session has already been found.
+         */
+        verifyNoInteractions(userRepository);
     }
 
     @Test
     void shouldCreateNewSessionAfterPreviousSessionIsCompleted() {
 
+        User user =
+                User.reconstitute(
+                        1L,
+                        "github-user-1"
+                );
+
         PlatformProblem problem =
                 createProblem();
 
-        // Repository returns no ACTIVE session.
-        // This means any previous session is completed/abandoned.
         when(platformProblemRepository
                 .findByPlatformProblemId(
                         "LEETCODE",
@@ -128,15 +175,27 @@ class StartCodingSessionServiceTest {
                 ))
                 .thenReturn(Optional.of(problem));
 
+        /*
+         * No ACTIVE session means the previous session
+         * was completed or abandoned.
+         */
         when(codingSessionRepository
-                .findActiveByProblem(
+                .findActiveByUserAndProblem(
+                        1L,
                         "LEETCODE",
                         "1"
                 ))
                 .thenReturn(Optional.empty());
 
+        when(userRepository
+                .findById(1L))
+                .thenReturn(Optional.of(user));
+
         CodingSession newSession =
-                CodingSession.start(problem);
+                CodingSession.start(
+                        user,
+                        problem
+                );
 
         when(codingSessionRepository.save(any()))
                 .thenReturn(newSession);
@@ -144,6 +203,7 @@ class StartCodingSessionServiceTest {
         CodingSession result =
                 service.start(
                         new StartCodingSessionCommand(
+                                1L,
                                 "LEETCODE",
                                 "1"
                         )
@@ -152,7 +212,132 @@ class StartCodingSessionServiceTest {
         assertThat(result)
                 .isSameAs(newSession);
 
+        assertThat(result.user())
+                .isEqualTo(user);
+
         verify(codingSessionRepository)
+                .save(any(CodingSession.class));
+    }
+
+    @Test
+    void shouldAllowDifferentUsersToHaveSeparateActiveSessionsForSameProblem() {
+
+        User userA =
+                User.reconstitute(
+                        1L,
+                        "github-user-A"
+                );
+
+        User userB =
+                User.reconstitute(
+                        2L,
+                        "github-user-B"
+                );
+
+        PlatformProblem problem =
+                createProblem();
+
+        CodingSession sessionA =
+                CodingSession.start(
+                        userA,
+                        problem
+                );
+
+        CodingSession sessionB =
+                CodingSession.start(
+                        userB,
+                        problem
+                );
+
+        when(platformProblemRepository
+                .findByPlatformProblemId(
+                        "LEETCODE",
+                        "1"
+                ))
+                .thenReturn(Optional.of(problem));
+
+        /*
+         * User A has no active session for the problem.
+         */
+        when(codingSessionRepository
+                .findActiveByUserAndProblem(
+                        1L,
+                        "LEETCODE",
+                        "1"
+                ))
+                .thenReturn(Optional.empty());
+
+        /*
+         * User B also has no active session for the problem.
+         *
+         * The important point is that the lookup is scoped
+         * by userId.
+         */
+        when(codingSessionRepository
+                .findActiveByUserAndProblem(
+                        2L,
+                        "LEETCODE",
+                        "1"
+                ))
+                .thenReturn(Optional.empty());
+
+        when(userRepository
+                .findById(1L))
+                .thenReturn(Optional.of(userA));
+
+        when(userRepository
+                .findById(2L))
+                .thenReturn(Optional.of(userB));
+
+        when(codingSessionRepository.save(any()))
+                .thenAnswer(invocation ->
+                        invocation.getArgument(0));
+
+        CodingSession resultA =
+                service.start(
+                        new StartCodingSessionCommand(
+                                1L,
+                                "LEETCODE",
+                                "1"
+                        )
+                );
+
+        CodingSession resultB =
+                service.start(
+                        new StartCodingSessionCommand(
+                                2L,
+                                "LEETCODE",
+                                "1"
+                        )
+                );
+
+        assertThat(resultA.user())
+                .isEqualTo(userA);
+
+        assertThat(resultB.user())
+                .isEqualTo(userB);
+
+        assertThat(resultA.sessionId())
+                .isNotEqualTo(resultB.sessionId());
+
+        assertThat(resultA.problem())
+                .isEqualTo(resultB.problem());
+
+        verify(codingSessionRepository)
+                .findActiveByUserAndProblem(
+                        1L,
+                        "LEETCODE",
+                        "1"
+                );
+
+        verify(codingSessionRepository)
+                .findActiveByUserAndProblem(
+                        2L,
+                        "LEETCODE",
+                        "1"
+                );
+
+        verify(codingSessionRepository, times(2))
                 .save(any(CodingSession.class));
     }
 
@@ -169,16 +354,72 @@ class StartCodingSessionServiceTest {
         assertThatThrownBy(() ->
                 service.start(
                         new StartCodingSessionCommand(
+                                1L,
                                 "LEETCODE",
                                 "999"
                         )
                 )
         )
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Platform problem not found.");
+                .isInstanceOf(
+                        IllegalStateException.class
+                )
+                .hasMessage(
+                        "Platform problem not found."
+                );
 
         verify(codingSessionRepository, never())
-                .findActiveByProblem(any(), any());
+                .findActiveByUserAndProblem(
+                        any(),
+                        any(),
+                        any()
+                );
+
+        verify(codingSessionRepository, never())
+                .save(any());
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void shouldRejectMissingUser() {
+
+        PlatformProblem problem =
+                createProblem();
+
+        when(platformProblemRepository
+                .findByPlatformProblemId(
+                        "LEETCODE",
+                        "1"
+                ))
+                .thenReturn(Optional.of(problem));
+
+        when(codingSessionRepository
+                .findActiveByUserAndProblem(
+                        999L,
+                        "LEETCODE",
+                        "1"
+                ))
+                .thenReturn(Optional.empty());
+
+        when(userRepository
+                .findById(999L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                service.start(
+                        new StartCodingSessionCommand(
+                                999L,
+                                "LEETCODE",
+                                "1"
+                        )
+                )
+        )
+                .isInstanceOf(
+                        IllegalStateException.class
+                )
+                .hasMessage(
+                        "User not found."
+                );
 
         verify(codingSessionRepository, never())
                 .save(any());
@@ -190,16 +431,22 @@ class StartCodingSessionServiceTest {
         assertThatThrownBy(() ->
                 service.start(
                         new StartCodingSessionCommand(
+                                1L,
                                 "",
                                 "1"
                         )
                 )
         )
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Platform cannot be blank.");
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "Platform cannot be blank."
+                );
 
         verifyNoInteractions(platformProblemRepository);
         verifyNoInteractions(codingSessionRepository);
+        verifyNoInteractions(userRepository);
     }
 
     @Test
@@ -208,22 +455,56 @@ class StartCodingSessionServiceTest {
         assertThatThrownBy(() ->
                 service.start(
                         new StartCodingSessionCommand(
+                                1L,
                                 "LEETCODE",
                                 ""
                         )
                 )
         )
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
                 .hasMessage(
                         "Platform problem ID cannot be blank."
                 );
 
         verifyNoInteractions(platformProblemRepository);
         verifyNoInteractions(codingSessionRepository);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void shouldRejectNullUserId() {
+
+        assertThatThrownBy(() ->
+                service.start(
+                        new StartCodingSessionCommand(
+                                null,
+                                "LEETCODE",
+                                "1"
+                        )
+                )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "User ID cannot be null."
+                );
+
+        verifyNoInteractions(platformProblemRepository);
+        verifyNoInteractions(codingSessionRepository);
+        verifyNoInteractions(userRepository);
     }
 
     @Test
     void shouldNotReuseSessionWhenPlatformIsDifferent() {
+
+        User user =
+                User.reconstitute(
+                        1L,
+                        "github-user-1"
+                );
 
         PlatformProblem leetCodeProblem =
                 createProblem();
@@ -244,7 +525,10 @@ class StartCodingSessionServiceTest {
                 );
 
         CodingSession leetCodeSession =
-                CodingSession.start(leetCodeProblem);
+                CodingSession.start(
+                        user,
+                        leetCodeProblem
+                );
 
         when(platformProblemRepository
                 .findByPlatformProblemId(
@@ -254,11 +538,16 @@ class StartCodingSessionServiceTest {
                 .thenReturn(Optional.of(gfgProblem));
 
         when(codingSessionRepository
-                .findActiveByProblem(
+                .findActiveByUserAndProblem(
+                        1L,
                         "GEEKS_FOR_GEEKS",
                         "1"
                 ))
                 .thenReturn(Optional.empty());
+
+        when(userRepository
+                .findById(1L))
+                .thenReturn(Optional.of(user));
 
         when(codingSessionRepository.save(any()))
                 .thenAnswer(invocation ->
@@ -267,6 +556,7 @@ class StartCodingSessionServiceTest {
         CodingSession result =
                 service.start(
                         new StartCodingSessionCommand(
+                                1L,
                                 "GEEKS_FOR_GEEKS",
                                 "1"
                         )
@@ -278,11 +568,15 @@ class StartCodingSessionServiceTest {
         assertThat(result.problem())
                 .isEqualTo(gfgProblem);
 
+        assertThat(result.user())
+                .isEqualTo(user);
+
         assertThat(result.isActive())
                 .isTrue();
 
         verify(codingSessionRepository)
-                .findActiveByProblem(
+                .findActiveByUserAndProblem(
+                        1L,
                         "GEEKS_FOR_GEEKS",
                         "1"
                 );

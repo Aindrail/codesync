@@ -2,12 +2,14 @@ package com.codesync.session.persistence.repository;
 
 import com.codesync.session.domain.aggregate.CodingSession;
 import com.codesync.session.domain.entity.SubmissionAttempt;
+import com.codesync.session.domain.entity.User;
 import com.codesync.session.domain.enumtype.Platform;
 import com.codesync.session.domain.enumtype.ProgrammingLanguage;
 import com.codesync.session.domain.enumtype.SubmissionVerdict;
 import com.codesync.session.domain.repository.CodingSessionRepository;
 import com.codesync.session.domain.repository.PlatformProblemRepository;
 import com.codesync.session.domain.repository.SubmissionAttemptRepository;
+import com.codesync.session.domain.repository.UserRepository;
 import com.codesync.session.domain.valueobject.CodeFingerprint;
 import com.codesync.session.domain.valueobject.ExecutionResult;
 import com.codesync.session.domain.valueobject.PlatformProblem;
@@ -32,6 +34,9 @@ class SubmissionAttemptRepositoryIntegrationTest {
 
     @Autowired
     private SubmissionAttemptRepository submissionAttemptRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private CodingSessionRepository codingSessionRepository;
@@ -405,6 +410,13 @@ class SubmissionAttemptRepositoryIntegrationTest {
     private CodingSession createCodingSession(
             String problemId) {
 
+        User user =
+                userRepository.save(
+                        User.create(
+                                "github-submission-test-" + problemId
+                        )
+                );
+
         PlatformProblem problem =
                 new PlatformProblem(
                         problemId,
@@ -424,7 +436,10 @@ class SubmissionAttemptRepositoryIntegrationTest {
                 platformProblemRepository.save(problem);
 
         CodingSession session =
-                CodingSession.start(savedProblem);
+                CodingSession.start(
+                        user,
+                        savedProblem
+                );
 
         return codingSessionRepository.save(session);
     }
