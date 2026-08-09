@@ -38,3 +38,6 @@ codesync-test.db
 
 src/main/java/com/codesync/domain - Shortcut.lnk
 src/main/java/com/codesync/session - Shortcut.lnk
+/src/main/codesync - Shortcut.lnk
+/src/main/java/com/codesync/session/persistence - Shortcut (2).lnk
+/src/main/java/com/codesync/session/domain/enumtype/session - Shortcut.lnk
