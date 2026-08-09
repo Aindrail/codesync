@@ -10,6 +10,12 @@ public interface CodingSessionJpaRepository
         extends JpaRepository<CodingSessionEntity, Long> {
 
     Optional<CodingSessionEntity> findBySessionId(UUID sessionId);
+    Optional<CodingSessionEntity>
+    findByProblem_PlatformAndProblem_PlatformProblemIdAndStatus(
+            String platform,
+            String platformProblemId,
+            String status
+    );
 
     boolean existsBySessionId(UUID sessionId);
 }
