@@ -19,6 +19,20 @@ public class CodingSessionRepositoryAdapter
     private final CodingSessionJpaRepository jpaRepository;
     private final CodingSessionMapper mapper;
     private final PlatformProblemJpaRepository platformProblemJpaRepository;
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<CodingSession> findActiveByProblem(
+            String platform,
+            String platformProblemId) {
+
+        return jpaRepository
+                .findByProblem_PlatformAndProblem_PlatformProblemIdAndStatus(
+                        platform,
+                        platformProblemId,
+                        "ACTIVE"
+                )
+                .map(mapper::toDomain);
+    }
 
     public CodingSessionRepositoryAdapter(
             CodingSessionJpaRepository jpaRepository,
