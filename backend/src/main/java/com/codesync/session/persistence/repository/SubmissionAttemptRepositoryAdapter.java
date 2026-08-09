@@ -61,13 +61,13 @@ public class SubmissionAttemptRepositoryAdapter
                     sessionEntity
             );
 
-        }  else {
+        } else {
 
-        mapper.updateEntity(
-                attempt,
-                entity
-        );
-    }
+            mapper.updateEntity(
+                    attempt,
+                    entity
+            );
+        }
 
         SubmissionAttemptEntity savedEntity =
                 jpaRepository.save(entity);
