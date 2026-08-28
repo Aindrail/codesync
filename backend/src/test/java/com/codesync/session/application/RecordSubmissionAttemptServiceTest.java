@@ -9,6 +9,7 @@ import com.codesync.session.domain.enumtype.SubmissionVerdict;
 import com.codesync.session.domain.identifier.SessionId;
 import com.codesync.session.domain.repository.CodingSessionRepository;
 import com.codesync.session.domain.repository.SubmissionAttemptRepository;
+import com.codesync.session.domain.service.CodeFingerprintGenerator;
 import com.codesync.session.domain.valueobject.CodeFingerprint;
 import com.codesync.session.domain.valueobject.ExecutionResult;
 import com.codesync.session.domain.valueobject.PlatformProblem;
@@ -16,10 +17,12 @@ import com.codesync.session.domain.valueobject.Solution;
 import com.codesync.session.domain.valueobject.SourceCode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +41,9 @@ class RecordSubmissionAttemptServiceTest {
     @Mock
     private SubmissionAttemptRepository submissionAttemptRepository;
 
+    @Mock
+    private CodeFingerprintGenerator codeFingerprintGenerator;
+
     @InjectMocks
     private RecordSubmissionAttemptService service;
 
@@ -48,14 +54,29 @@ class RecordSubmissionAttemptServiceTest {
                 SessionId.newId().value().toString().toString();
 
         CodingSession session =
-                createSession();
+                createSession(
+                        User.reconstitute(
+                                1L,
+                                "github-user-1"
+                        )
+                );
 
-        Solution solution =
-                createSolution("return 1;");
+        SourceCode sourceCode =
+                new SourceCode("return 1;");
+
+        CodeFingerprint fingerprint =
+                new CodeFingerprint("fingerprint-1");
 
         ExecutionResult executionResult =
                 createExecutionResult(
                         SubmissionVerdict.WRONG_ANSWER
+                );
+
+        Solution solution =
+                new Solution(
+                        sourceCode,
+                        ProgrammingLanguage.JAVA,
+                        fingerprint
                 );
 
         SubmissionAttempt savedAttempt =
@@ -64,11 +85,24 @@ class RecordSubmissionAttemptServiceTest {
                         "LC-1001",
                         solution,
                         executionResult,
-                        java.time.Instant.now()
+                        Instant.now()
                 );
 
         when(codingSessionRepository.findBySessionId(any()))
                 .thenReturn(Optional.of(session));
+
+        when(codeFingerprintGenerator.generate(
+                sourceCode,
+                ProgrammingLanguage.JAVA
+        ))
+                .thenReturn(fingerprint);
+
+        when(submissionAttemptRepository
+                .existsByUserIdAndSolutionFingerprint(
+                        1L,
+                        fingerprint.value()
+                ))
+                .thenReturn(false);
 
         when(submissionAttemptRepository.save(
                 eq(new SessionId(UUID.fromString(sessionId))),
@@ -82,7 +116,8 @@ class RecordSubmissionAttemptServiceTest {
                                 sessionId,
                                 1,
                                 "LC-1001",
-                                solution,
+                                sourceCode,
+                                ProgrammingLanguage.JAVA,
                                 executionResult
                         )
                 );
@@ -97,45 +132,123 @@ class RecordSubmissionAttemptServiceTest {
                 .isEqualTo("LC-1001");
 
         assertThat(result.executionResult().verdict())
-                .isEqualTo(SubmissionVerdict.WRONG_ANSWER);
+                .isEqualTo(
+                        SubmissionVerdict.WRONG_ANSWER
+                );
 
-        verify(codingSessionRepository)
-                .findBySessionId(
-                        eq(new SessionId(UUID.fromString(sessionId)))
+        verify(codeFingerprintGenerator)
+                .generate(
+                        sourceCode,
+                        ProgrammingLanguage.JAVA
+                );
+
+        verify(submissionAttemptRepository)
+                .existsByUserIdAndSolutionFingerprint(
+                        1L,
+                        fingerprint.value()
                 );
 
         verify(submissionAttemptRepository)
                 .save(
-                        eq(new SessionId(UUID.fromString(sessionId))),
+                        eq(
+                                new SessionId(
+                                        UUID.fromString(sessionId)
+                                )
+                        ),
                         any(SubmissionAttempt.class)
                 );
     }
 
     @Test
-    void shouldAllowMultipleAttemptsForSameSession() {
+    void shouldAllowMultipleAttemptsForSameSessionWithDifferentFingerprints() {
 
         String sessionId =
                 SessionId.newId().value().toString().toString();
 
         CodingSession session =
-                createSession();
+                createSession(
+                        User.reconstitute(
+                                1L,
+                                "github-user-1"
+                        )
+                );
+
+        SourceCode sourceCode1 =
+                new SourceCode("return 1;");
+
+        SourceCode sourceCode2 =
+                new SourceCode("return 2;");
+
+        CodeFingerprint fingerprint1 =
+                new CodeFingerprint("fingerprint-1");
+
+        CodeFingerprint fingerprint2 =
+                new CodeFingerprint("fingerprint-2");
+
+        ExecutionResult executionResult1 =
+                createExecutionResult(
+                        SubmissionVerdict.WRONG_ANSWER
+                );
+
+        ExecutionResult executionResult2 =
+                createExecutionResult(
+                        SubmissionVerdict.ACCEPTED
+                );
+
+        SubmissionAttempt attempt1 =
+                new SubmissionAttempt(
+                        1,
+                        "LC-2001",
+                        new Solution(
+                                sourceCode1,
+                                ProgrammingLanguage.JAVA,
+                                fingerprint1
+                        ),
+                        executionResult1,
+                        Instant.now()
+                );
+
+        SubmissionAttempt attempt2 =
+                new SubmissionAttempt(
+                        2,
+                        "LC-2002",
+                        new Solution(
+                                sourceCode2,
+                                ProgrammingLanguage.JAVA,
+                                fingerprint2
+                        ),
+                        executionResult2,
+                        Instant.now()
+                );
 
         when(codingSessionRepository.findBySessionId(any()))
                 .thenReturn(Optional.of(session));
 
-        SubmissionAttempt attempt1 =
-                createAttempt(
-                        1,
-                        "LC-2001",
-                        SubmissionVerdict.WRONG_ANSWER
-                );
+        when(codeFingerprintGenerator.generate(
+                sourceCode1,
+                ProgrammingLanguage.JAVA
+        ))
+                .thenReturn(fingerprint1);
 
-        SubmissionAttempt attempt2 =
-                createAttempt(
-                        2,
-                        "LC-2002",
-                        SubmissionVerdict.ACCEPTED
-                );
+        when(codeFingerprintGenerator.generate(
+                sourceCode2,
+                ProgrammingLanguage.JAVA
+        ))
+                .thenReturn(fingerprint2);
+
+        when(submissionAttemptRepository
+                .existsByUserIdAndSolutionFingerprint(
+                        1L,
+                        fingerprint1.value()
+                ))
+                .thenReturn(false);
+
+        when(submissionAttemptRepository
+                .existsByUserIdAndSolutionFingerprint(
+                        1L,
+                        fingerprint2.value()
+                ))
+                .thenReturn(false);
 
         when(submissionAttemptRepository.save(
                 any(),
@@ -150,8 +263,9 @@ class RecordSubmissionAttemptServiceTest {
                                 sessionId,
                                 1,
                                 "LC-2001",
-                                attempt1.solution(),
-                                attempt1.executionResult()
+                                sourceCode1,
+                                ProgrammingLanguage.JAVA,
+                                executionResult1
                         )
                 );
 
@@ -161,26 +275,198 @@ class RecordSubmissionAttemptServiceTest {
                                 sessionId,
                                 2,
                                 "LC-2002",
-                                attempt2.solution(),
-                                attempt2.executionResult()
+                                sourceCode2,
+                                ProgrammingLanguage.JAVA,
+                                executionResult2
                         )
                 );
 
         assertThat(first.attemptNumber())
                 .isEqualTo(1);
 
-        assertThat(first.executionResult().verdict())
-                .isEqualTo(SubmissionVerdict.WRONG_ANSWER);
-
         assertThat(second.attemptNumber())
                 .isEqualTo(2);
 
-        assertThat(second.executionResult().verdict())
-                .isEqualTo(SubmissionVerdict.ACCEPTED);
-
         verify(submissionAttemptRepository, times(2))
                 .save(
-                        eq(new SessionId(UUID.fromString(sessionId))),
+                        eq(
+                                new SessionId(
+                                        UUID.fromString(sessionId)
+                                )
+                        ),
+                        any(SubmissionAttempt.class)
+                );
+    }
+
+    @Test
+    void shouldRejectSameFingerprintForSameUser() {
+
+        String sessionId =
+                SessionId.newId().value().toString().toString();
+
+        User user =
+                User.reconstitute(
+                        1L,
+                        "github-user-1"
+                );
+
+        CodingSession session =
+                createSession(user);
+
+        SourceCode sourceCode =
+                new SourceCode(
+                        "int add(int a, int b) { return a + b; }"
+                );
+
+        CodeFingerprint fingerprint =
+                new CodeFingerprint(
+                        "duplicate-fingerprint"
+                );
+
+        ExecutionResult executionResult =
+                createExecutionResult(
+                        SubmissionVerdict.ACCEPTED
+                );
+
+        when(codingSessionRepository.findBySessionId(any()))
+                .thenReturn(Optional.of(session));
+
+        when(codeFingerprintGenerator.generate(
+                sourceCode,
+                ProgrammingLanguage.JAVA
+        ))
+                .thenReturn(fingerprint);
+
+        when(submissionAttemptRepository
+                .existsByUserIdAndSolutionFingerprint(
+                        user.id(),
+                        fingerprint.value()
+                ))
+                .thenReturn(true);
+
+        assertThatThrownBy(() ->
+                service.record(
+                        new RecordSubmissionAttemptCommand(
+                                sessionId,
+                                1,
+                                "LC-3001",
+                                sourceCode,
+                                ProgrammingLanguage.JAVA,
+                                executionResult
+                        )
+                )
+        )
+                .isInstanceOf(
+                        IllegalStateException.class
+                )
+                .hasMessage(
+                        "This solution has already been submitted by this user."
+                );
+
+        verify(submissionAttemptRepository)
+                .existsByUserIdAndSolutionFingerprint(
+                        1L,
+                        fingerprint.value()
+                );
+
+        verify(submissionAttemptRepository, never())
+                .save(
+                        any(),
+                        any()
+                );
+    }
+
+    @Test
+    void shouldAllowSameFingerprintForDifferentUsers() {
+
+        String sessionId =
+                SessionId.newId().value().toString().toString();
+
+        User secondUser =
+                User.reconstitute(
+                        2L,
+                        "github-user-2"
+                );
+
+        CodingSession secondUserSession =
+                createSession(secondUser);
+
+        SourceCode sourceCode =
+                new SourceCode(
+                        "int add(int a, int b) { return a + b; }"
+                );
+
+        CodeFingerprint fingerprint =
+                new CodeFingerprint(
+                        "shared-fingerprint"
+                );
+
+        ExecutionResult executionResult =
+                createExecutionResult(
+                        SubmissionVerdict.ACCEPTED
+                );
+
+        SubmissionAttempt savedAttempt =
+                new SubmissionAttempt(
+                        1,
+                        "LC-4001",
+                        new Solution(
+                                sourceCode,
+                                ProgrammingLanguage.JAVA,
+                                fingerprint
+                        ),
+                        executionResult,
+                        Instant.now()
+                );
+
+        when(codingSessionRepository.findBySessionId(any()))
+                .thenReturn(
+                        Optional.of(secondUserSession)
+                );
+
+        when(codeFingerprintGenerator.generate(
+                sourceCode,
+                ProgrammingLanguage.JAVA
+        ))
+                .thenReturn(fingerprint);
+
+        when(submissionAttemptRepository
+                .existsByUserIdAndSolutionFingerprint(
+                        2L,
+                        fingerprint.value()
+                ))
+                .thenReturn(false);
+
+        when(submissionAttemptRepository.save(
+                any(),
+                any(SubmissionAttempt.class)
+        ))
+                .thenReturn(savedAttempt);
+
+        SubmissionAttempt result =
+                service.record(
+                        new RecordSubmissionAttemptCommand(
+                                sessionId,
+                                1,
+                                "LC-4001",
+                                sourceCode,
+                                ProgrammingLanguage.JAVA,
+                                executionResult
+                        )
+                );
+
+        assertThat(result)
+                .isSameAs(savedAttempt);
+
+        verify(submissionAttemptRepository)
+                .existsByUserIdAndSolutionFingerprint(
+                        2L,
+                        fingerprint.value()
+                );
+
+        verify(submissionAttemptRepository)
+                .save(
+                        any(),
                         any(SubmissionAttempt.class)
                 );
     }
@@ -191,32 +477,37 @@ class RecordSubmissionAttemptServiceTest {
         String sessionId =
                 SessionId.newId().value().toString().toString();
 
-        when(codingSessionRepository.findBySessionId(any()))
-                .thenReturn(Optional.empty());
-
-        Solution solution =
-                createSolution("return 1;");
+        SourceCode sourceCode =
+                new SourceCode("return 1;");
 
         ExecutionResult executionResult =
                 createExecutionResult(
                         SubmissionVerdict.WRONG_ANSWER
                 );
 
+        when(codingSessionRepository.findBySessionId(any()))
+                .thenReturn(Optional.empty());
+
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
                                 sessionId,
                                 1,
-                                "LC-3001",
-                                solution,
+                                "LC-5001",
+                                sourceCode,
+                                ProgrammingLanguage.JAVA,
                                 executionResult
                         )
                 )
         )
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(
+                        IllegalStateException.class
+                )
                 .hasMessage(
                         "Coding session not found."
                 );
+
+        verifyNoInteractions(codeFingerprintGenerator);
 
         verify(submissionAttemptRepository, never())
                 .save(any(), any());
@@ -230,21 +521,27 @@ class RecordSubmissionAttemptServiceTest {
                         new RecordSubmissionAttemptCommand(
                                 "",
                                 1,
-                                "LC-4001",
-                                createSolution("return 1;"),
+                                "LC-6001",
+                                new SourceCode("return 1;"),
+                                ProgrammingLanguage.JAVA,
                                 createExecutionResult(
                                         SubmissionVerdict.ACCEPTED
                                 )
                         )
                 )
         )
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
                 .hasMessage(
                         "Session ID cannot be blank."
                 );
 
-        verifyNoInteractions(codingSessionRepository);
-        verifyNoInteractions(submissionAttemptRepository);
+        verifyNoInteractions(
+                codingSessionRepository,
+                submissionAttemptRepository,
+                codeFingerprintGenerator
+        );
     }
 
     @Test
@@ -255,32 +552,70 @@ class RecordSubmissionAttemptServiceTest {
                         new RecordSubmissionAttemptCommand(
                                 SessionId.newId().value().toString(),
                                 0,
-                                "LC-5001",
-                                createSolution("return 1;"),
+                                "LC-7001",
+                                new SourceCode("return 1;"),
+                                ProgrammingLanguage.JAVA,
                                 createExecutionResult(
                                         SubmissionVerdict.WRONG_ANSWER
                                 )
                         )
                 )
         )
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
                 .hasMessage(
                         "Attempt number must be greater than zero."
                 );
 
-        verifyNoInteractions(codingSessionRepository);
-        verifyNoInteractions(submissionAttemptRepository);
+        verifyNoInteractions(
+                codingSessionRepository,
+                submissionAttemptRepository,
+                codeFingerprintGenerator
+        );
     }
 
     @Test
-    void shouldRejectMissingSolution() {
+    void shouldRejectMissingSourceCode() {
 
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
                                 SessionId.newId().value().toString(),
                                 1,
-                                "LC-6001",
+                                "LC-8001",
+                                null,
+                                ProgrammingLanguage.JAVA,
+                                createExecutionResult(
+                                        SubmissionVerdict.ACCEPTED
+                                )
+                        )
+                )
+        )
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
+                .hasMessage(
+                        "Source code cannot be null."
+                );
+
+        verifyNoInteractions(
+                codingSessionRepository,
+                submissionAttemptRepository,
+                codeFingerprintGenerator
+        );
+    }
+
+    @Test
+    void shouldRejectMissingProgrammingLanguage() {
+
+        assertThatThrownBy(() ->
+                service.record(
+                        new RecordSubmissionAttemptCommand(
+                                SessionId.newId().value().toString(),
+                                1,
+                                "LC-9001",
+                                new SourceCode("return 1;"),
                                 null,
                                 createExecutionResult(
                                         SubmissionVerdict.ACCEPTED
@@ -288,13 +623,18 @@ class RecordSubmissionAttemptServiceTest {
                         )
                 )
         )
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
                 .hasMessage(
-                        "Solution cannot be null."
+                        "Programming language cannot be null."
                 );
 
-        verifyNoInteractions(codingSessionRepository);
-        verifyNoInteractions(submissionAttemptRepository);
+        verifyNoInteractions(
+                codingSessionRepository,
+                submissionAttemptRepository,
+                codeFingerprintGenerator
+        );
     }
 
     @Test
@@ -305,28 +645,123 @@ class RecordSubmissionAttemptServiceTest {
                         new RecordSubmissionAttemptCommand(
                                 SessionId.newId().value().toString(),
                                 1,
-                                "LC-7001",
-                                createSolution("return 1;"),
+                                "LC-10001",
+                                new SourceCode("return 1;"),
+                                ProgrammingLanguage.JAVA,
                                 null
                         )
                 )
         )
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(
+                        IllegalArgumentException.class
+                )
                 .hasMessage(
                         "Execution result cannot be null."
                 );
 
-        verifyNoInteractions(codingSessionRepository);
-        verifyNoInteractions(submissionAttemptRepository);
+        verifyNoInteractions(
+                codingSessionRepository,
+                submissionAttemptRepository,
+                codeFingerprintGenerator
+        );
     }
 
-    private CodingSession createSession() {
+    @Test
+    void shouldSaveSolutionWithGeneratedFingerprint() {
+
+        String sessionId =
+                SessionId.newId().value().toString().toString();
 
         User user =
                 User.reconstitute(
                         1L,
-                        "github-record-submission-test"
+                        "github-user-1"
                 );
+
+        CodingSession session =
+                createSession(user);
+
+        SourceCode sourceCode =
+                new SourceCode(
+                        "int add(int a, int b) { return a + b; }"
+                );
+
+        CodeFingerprint generatedFingerprint =
+                new CodeFingerprint(
+                        "generated-fingerprint"
+                );
+
+        ExecutionResult executionResult =
+                createExecutionResult(
+                        SubmissionVerdict.ACCEPTED
+                );
+
+        when(codingSessionRepository.findBySessionId(any()))
+                .thenReturn(Optional.of(session));
+
+        when(codeFingerprintGenerator.generate(
+                sourceCode,
+                ProgrammingLanguage.JAVA
+        ))
+                .thenReturn(generatedFingerprint);
+
+        when(submissionAttemptRepository
+                .existsByUserIdAndSolutionFingerprint(
+                        user.id(),
+                        generatedFingerprint.value()
+                ))
+                .thenReturn(false);
+
+        when(submissionAttemptRepository.save(
+                any(),
+                any(SubmissionAttempt.class)
+        ))
+                .thenAnswer(invocation ->
+                        invocation.getArgument(1)
+                );
+
+        service.record(
+                new RecordSubmissionAttemptCommand(
+                        sessionId,
+                        1,
+                        "LC-11001",
+                        sourceCode,
+                        ProgrammingLanguage.JAVA,
+                        executionResult
+                )
+        );
+
+        ArgumentCaptor<SubmissionAttempt> captor =
+                ArgumentCaptor.forClass(
+                        SubmissionAttempt.class
+                );
+
+        verify(submissionAttemptRepository)
+                .save(
+                        any(),
+                        captor.capture()
+                );
+
+        SubmissionAttempt savedAttempt =
+                captor.getValue();
+
+        assertThat(
+                savedAttempt.solution().fingerprint()
+        )
+                .isEqualTo(generatedFingerprint);
+
+        assertThat(
+                savedAttempt.solution().sourceCode()
+        )
+                .isEqualTo(sourceCode);
+
+        assertThat(
+                savedAttempt.solution().language()
+        )
+                .isEqualTo(ProgrammingLanguage.JAVA);
+    }
+
+    private CodingSession createSession(User user) {
 
         PlatformProblem problem =
                 new PlatformProblem(
@@ -346,34 +781,6 @@ class RecordSubmissionAttemptServiceTest {
         return CodingSession.start(
                 user,
                 problem
-        );
-    }
-
-    private SubmissionAttempt createAttempt(
-            int attemptNumber,
-            String platformSubmissionId,
-            SubmissionVerdict verdict) {
-
-        return new SubmissionAttempt(
-                attemptNumber,
-                platformSubmissionId,
-                createSolution(
-                        "return " + attemptNumber + ";"
-                ),
-                createExecutionResult(verdict),
-                java.time.Instant.now()
-        );
-    }
-
-    private Solution createSolution(
-            String sourceCode) {
-
-        return new Solution(
-                new SourceCode(sourceCode),
-                ProgrammingLanguage.JAVA,
-                new CodeFingerprint(
-                        "fingerprint-" + sourceCode
-                )
         );
     }
 

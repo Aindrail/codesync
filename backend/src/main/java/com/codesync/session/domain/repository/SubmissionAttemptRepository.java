@@ -18,6 +18,11 @@ public interface SubmissionAttemptRepository {
             Integer attemptNumber
     );
 
+    Optional<SubmissionAttempt> findBySessionIdAndSolutionFingerprint(
+            SessionId sessionId,
+            String fingerprint
+    );
+
     List<SubmissionAttempt> findAllBySessionId(
             SessionId sessionId
     );
@@ -25,5 +30,10 @@ public interface SubmissionAttemptRepository {
     boolean existsBySessionIdAndAttemptNumber(
             SessionId sessionId,
             Integer attemptNumber
+    );
+
+    boolean existsByUserIdAndSolutionFingerprint(
+            Long userId,
+            String fingerprint
     );
 }
