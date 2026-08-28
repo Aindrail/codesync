@@ -116,4 +116,31 @@ public class SubmissionAttemptRepositoryAdapter
                         attemptNumber
                 );
     }
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<SubmissionAttempt> findBySessionIdAndSolutionFingerprint(
+            SessionId sessionId,
+            String fingerprint) {
+
+        return jpaRepository
+                .findBySession_SessionIdAndSolution_Fingerprint(
+                        sessionId.value(),
+                        fingerprint
+                )
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByUserIdAndSolutionFingerprint(
+            Long userId,
+            String fingerprint) {
+
+        return jpaRepository
+                .existsBySession_User_IdAndSolution_Fingerprint(
+                        userId,
+                        fingerprint
+                );
+    }
+
 }

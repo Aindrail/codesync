@@ -406,16 +406,78 @@ class SubmissionAttemptRepositoryIntegrationTest {
                 retrieved.executionResult().verdict()
         ).isEqualTo(SubmissionVerdict.ACCEPTED);
     }
+    @Test
+    void shouldReturnTrueForSameUserAndSameFingerprint() {
 
+        CodingSession session =
+                createCodingSession("3010");
+
+        String fingerprint =
+                "shared-fingerprint";
+
+        SubmissionAttempt attempt =
+                createAttempt(
+                        1,
+                        "LC-SUB-701",
+                        "return 1;",
+                        fingerprint,
+                        SubmissionVerdict.ACCEPTED
+                );
+
+        submissionAttemptRepository.save(
+                session.sessionId(),
+                attempt
+        );
+
+        boolean exists =
+                submissionAttemptRepository
+                        .existsByUserIdAndSolutionFingerprint(
+                                session.user().id(),
+                                fingerprint
+                        );
+
+        assertThat(exists)
+                .isTrue();
+    }
+
+    @Test
+    void shouldReturnFalseForDifferentUserWithSameFingerprint() {
+
+        CodingSession firstSession =
+                createCodingSession("3011");
+
+        CodingSession secondSession =
+                createCodingSession("3012");
+
+        String fingerprint =
+                "shared-fingerprint";
+
+        SubmissionAttempt attempt =
+                createAttempt(
+                        1,
+                        "LC-SUB-702",
+                        "return 1;",
+                        fingerprint,
+                        SubmissionVerdict.ACCEPTED
+                );
+
+        submissionAttemptRepository.save(
+                firstSession.sessionId(),
+                attempt
+        );
+
+        boolean exists =
+                submissionAttemptRepository
+                        .existsByUserIdAndSolutionFingerprint(
+                                secondSession.user().id(),
+                                fingerprint
+                        );
+
+        assertThat(exists)
+                .isFalse();
+    }
     private CodingSession createCodingSession(
             String problemId) {
-
-        User user =
-                userRepository.save(
-                        User.create(
-                                "github-submission-test-" + problemId
-                        )
-                );
 
         PlatformProblem problem =
                 new PlatformProblem(
@@ -424,7 +486,8 @@ class SubmissionAttemptRepositoryIntegrationTest {
                         "LEETCODE-" + problemId,
                         "Test Problem " + problemId,
                         "test-problem-" + problemId,
-                        "https://leetcode.com/problems/test-problem-" + problemId + "/",
+                        "https://leetcode.com/problems/test-problem-"
+                                + problemId + "/",
                         Platform.LEETCODE,
                         "Medium",
                         Set.of("Array"),
@@ -434,6 +497,13 @@ class SubmissionAttemptRepositoryIntegrationTest {
 
         PlatformProblem savedProblem =
                 platformProblemRepository.save(problem);
+
+        User user =
+                userRepository.save(
+                        User.create(
+                                "github-user-" + problemId
+                        )
+                );
 
         CodingSession session =
                 CodingSession.start(

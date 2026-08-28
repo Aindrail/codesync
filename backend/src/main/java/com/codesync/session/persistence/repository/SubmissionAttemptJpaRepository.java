@@ -16,6 +16,12 @@ public interface SubmissionAttemptJpaRepository
             Integer attemptNumber
     );
 
+    Optional<SubmissionAttemptEntity>
+    findBySession_SessionIdAndSolution_Fingerprint(
+            UUID sessionId,
+            String fingerprint
+    );
+
     List<SubmissionAttemptEntity>
     findAllBySession_SessionIdOrderByAttemptNumberAsc(
             UUID sessionId
@@ -24,5 +30,10 @@ public interface SubmissionAttemptJpaRepository
     boolean existsBySession_SessionIdAndAttemptNumber(
             UUID sessionId,
             Integer attemptNumber
+    );
+
+    boolean existsBySession_User_IdAndSolution_Fingerprint(
+            Long userId,
+            String fingerprint
     );
 }

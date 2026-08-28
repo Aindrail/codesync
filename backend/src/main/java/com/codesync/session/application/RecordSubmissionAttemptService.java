@@ -1,9 +1,13 @@
 package com.codesync.session.application;
 
+import com.codesync.session.domain.aggregate.CodingSession;
 import com.codesync.session.domain.entity.SubmissionAttempt;
 import com.codesync.session.domain.identifier.SessionId;
 import com.codesync.session.domain.repository.CodingSessionRepository;
 import com.codesync.session.domain.repository.SubmissionAttemptRepository;
+import com.codesync.session.domain.service.CodeFingerprintGenerator;
+import com.codesync.session.domain.valueobject.CodeFingerprint;
+import com.codesync.session.domain.valueobject.Solution;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,16 +21,21 @@ public class RecordSubmissionAttemptService
 
     private final CodingSessionRepository codingSessionRepository;
     private final SubmissionAttemptRepository submissionAttemptRepository;
+    private final CodeFingerprintGenerator codeFingerprintGenerator;
 
     public RecordSubmissionAttemptService(
             CodingSessionRepository codingSessionRepository,
-            SubmissionAttemptRepository submissionAttemptRepository) {
+            SubmissionAttemptRepository submissionAttemptRepository,
+            CodeFingerprintGenerator codeFingerprintGenerator) {
 
         this.codingSessionRepository =
                 codingSessionRepository;
 
         this.submissionAttemptRepository =
                 submissionAttemptRepository;
+
+        this.codeFingerprintGenerator =
+                codeFingerprintGenerator;
     }
 
     @Override
@@ -40,19 +49,46 @@ public class RecordSubmissionAttemptService
                         UUID.fromString(command.sessionId())
                 );
 
-        codingSessionRepository
-                .findBySessionId(sessionId)
-                .orElseThrow(() ->
-                        new IllegalStateException(
-                                "Coding session not found."
-                        )
+        CodingSession session =
+                codingSessionRepository
+                        .findBySessionId(sessionId)
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "Coding session not found."
+                                )
+                        );
+
+        CodeFingerprint fingerprint =
+                codeFingerprintGenerator.generate(
+                        command.sourceCode(),
+                        command.language()
                 );
+
+        Solution solution =
+                new Solution(
+                        command.sourceCode(),
+                        command.language(),
+                        fingerprint
+                );
+
+        boolean duplicate =
+                submissionAttemptRepository
+                        .existsByUserIdAndSolutionFingerprint(
+                                session.user().id(),
+                                fingerprint.value()
+                        );
+
+        if (duplicate) {
+            throw new IllegalStateException(
+                    "This solution has already been submitted by this user."
+            );
+        }
 
         SubmissionAttempt attempt =
                 new SubmissionAttempt(
                         command.attemptNumber(),
                         command.platformSubmissionId(),
-                        command.solution(),
+                        solution,
                         command.executionResult(),
                         Instant.now()
                 );
@@ -88,9 +124,15 @@ public class RecordSubmissionAttemptService
             );
         }
 
-        if (command.solution() == null) {
+        if (command.sourceCode() == null) {
             throw new IllegalArgumentException(
-                    "Solution cannot be null."
+                    "Source code cannot be null."
+            );
+        }
+
+        if (command.language() == null) {
+            throw new IllegalArgumentException(
+                    "Programming language cannot be null."
             );
         }
 
