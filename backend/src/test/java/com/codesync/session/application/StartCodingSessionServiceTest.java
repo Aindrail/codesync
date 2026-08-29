@@ -1,5 +1,6 @@
 package com.codesync.session.application;
 
+import com.codesync.common.exception.ResourceNotFoundException;
 import com.codesync.session.domain.aggregate.CodingSession;
 import com.codesync.session.domain.entity.User;
 import com.codesync.session.domain.repository.CodingSessionRepository;
@@ -361,7 +362,7 @@ class StartCodingSessionServiceTest {
                 )
         )
                 .isInstanceOf(
-                        IllegalStateException.class
+                        ResourceNotFoundException.class
                 )
                 .hasMessage(
                         "Platform problem not found."
@@ -415,7 +416,7 @@ class StartCodingSessionServiceTest {
                 )
         )
                 .isInstanceOf(
-                        IllegalStateException.class
+                        ResourceNotFoundException.class
                 )
                 .hasMessage(
                         "User not found."
