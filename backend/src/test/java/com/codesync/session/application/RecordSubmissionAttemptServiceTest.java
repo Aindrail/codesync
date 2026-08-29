@@ -1,5 +1,7 @@
 package com.codesync.session.application;
 
+import com.codesync.common.exception.DuplicateSubmissionException;
+import com.codesync.common.exception.ResourceNotFoundException;
 import com.codesync.session.domain.aggregate.CodingSession;
 import com.codesync.session.domain.entity.SubmissionAttempt;
 import com.codesync.session.domain.entity.User;
@@ -357,7 +359,7 @@ class RecordSubmissionAttemptServiceTest {
                 )
         )
                 .isInstanceOf(
-                        IllegalStateException.class
+                        DuplicateSubmissionException.class
                 )
                 .hasMessage(
                         "This solution has already been submitted by this user."
@@ -501,7 +503,7 @@ class RecordSubmissionAttemptServiceTest {
                 )
         )
                 .isInstanceOf(
-                        IllegalStateException.class
+                        ResourceNotFoundException.class
                 )
                 .hasMessage(
                         "Coding session not found."

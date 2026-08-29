@@ -1,5 +1,6 @@
 package com.codesync.session.application;
 
+import com.codesync.common.exception.ResourceNotFoundException;
 import com.codesync.session.domain.aggregate.CodingSession;
 import com.codesync.session.domain.entity.User;
 import com.codesync.session.domain.repository.CodingSessionRepository;
@@ -48,7 +49,7 @@ public class StartCodingSessionService
                                 command.platformProblemId()
                         )
                         .orElseThrow(() ->
-                                new IllegalStateException(
+                                new ResourceNotFoundException(
                                         "Platform problem not found."
                                 )
                         );
@@ -80,7 +81,7 @@ public class StartCodingSessionService
                 userRepository
                         .findById(command.userId())
                         .orElseThrow(() ->
-                                new IllegalStateException(
+                                new ResourceNotFoundException(
                                         "User not found."
                                 )
                         );
