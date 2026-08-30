@@ -15,3 +15,18 @@ spring:
 
   flyway:
     enabled: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope:
+              - read:user
+              - repo
+
+logging:
+  level:
+    org.springframework.security: DEBUG

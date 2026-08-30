@@ -1,5 +1,6 @@
 package com.codesync.session.api.controller;
 
+import com.codesync.common.security.CodeSyncOAuth2User;
 import com.codesync.session.api.request.ExecutionResultRequest;
 import com.codesync.session.api.request.RecordSubmissionAttemptRequest;
 import com.codesync.session.api.request.StartCodingSessionRequest;
@@ -13,6 +14,7 @@ import com.codesync.session.domain.valueobject.ExecutionResult;
 import com.codesync.session.domain.valueobject.SourceCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
@@ -22,7 +24,17 @@ public class CodingSessionController {
 
     private final StartCodingSessionUseCase startCodingSessionUseCase;
     private final RecordSubmissionAttemptUseCase recordSubmissionAttemptUseCase;
-
+    private ExecutionResult toExecutionResult(ExecutionResultRequest request) {
+        return new ExecutionResult(
+                request.verdict(),
+                request.runtimeInMillis(),
+                request.runtimePercentile(),
+                request.memoryInKb(),
+                request.memoryPercentile(),
+                request.totalTestCases(),
+                request.passedTestCases()
+        );
+    }
     public CodingSessionController(
             StartCodingSessionUseCase startCodingSessionUseCase,
             RecordSubmissionAttemptUseCase recordSubmissionAttemptUseCase
@@ -33,10 +45,11 @@ public class CodingSessionController {
 
     @PostMapping
     public ResponseEntity<CodingSessionResponse> startSession(
+            @AuthenticationPrincipal CodeSyncOAuth2User authenticatedUser,
             @Valid @RequestBody StartCodingSessionRequest request
     ) {
         StartCodingSessionCommand command = new StartCodingSessionCommand(
-                request.userId(),
+                authenticatedUser.userId(),
                 request.platform(),
                 request.platformProblemId()
         );
@@ -56,52 +69,46 @@ public class CodingSessionController {
 
     @PostMapping("/{sessionId}/attempts")
     public ResponseEntity<SubmissionAttemptResponse> recordSubmissionAttempt(
+            @AuthenticationPrincipal CodeSyncOAuth2User authenticatedUser,
             @PathVariable String sessionId,
             @Valid @RequestBody RecordSubmissionAttemptRequest request
     ) {
-        RecordSubmissionAttemptCommand command = new RecordSubmissionAttemptCommand(
-                sessionId,
-                request.attemptNumber(),
-                request.platformSubmissionId(),
-                new SourceCode(request.sourceCode()),
-                request.language(),
-                toExecutionResult(request.executionResult())
-        );
+        RecordSubmissionAttemptCommand command =
+                new RecordSubmissionAttemptCommand(
+                        authenticatedUser.userId(),
+                        sessionId,
+                        request.attemptNumber(),
+                        request.platformSubmissionId(),
+                        new SourceCode(request.sourceCode()),
+                        request.language(),
+                        toExecutionResult(request.executionResult())
+                );
 
-        SubmissionAttempt attempt = recordSubmissionAttemptUseCase.record(command);
+        SubmissionAttempt attempt =
+                recordSubmissionAttemptUseCase.record(command);
 
-        SubmissionAttemptResponse response = new SubmissionAttemptResponse(
-                attempt.attemptNumber(),
-                attempt.platformSubmissionId(),
-                attempt.solution().language().name(),
-                new ExecutionResultResponse(
-                        attempt.executionResult().verdict().name(),
-                        attempt.executionResult().runtimeInMillis(),
-                        attempt.executionResult().runtimePercentile(),
-                        attempt.executionResult().memoryInKb(),
-                        attempt.executionResult().memoryPercentile(),
-                        attempt.executionResult().totalTestCases(),
-                        attempt.executionResult().passedTestCases()
-                ),
-                attempt.submittedAt()
-        );
+        SubmissionAttemptResponse response =
+                new SubmissionAttemptResponse(
+                        attempt.attemptNumber(),
+                        attempt.platformSubmissionId(),
+                        attempt.solution().language().name(),
+                        new ExecutionResultResponse(
+                                attempt.executionResult().verdict().name(),
+                                attempt.executionResult().runtimeInMillis(),
+                                attempt.executionResult().runtimePercentile(),
+                                attempt.executionResult().memoryInKb(),
+                                attempt.executionResult().memoryPercentile(),
+                                attempt.executionResult().totalTestCases(),
+                                attempt.executionResult().passedTestCases()
+                        ),
+                        attempt.submittedAt()
+                );
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
 
-    private ExecutionResult toExecutionResult(ExecutionResultRequest request) {
-        return new ExecutionResult(
-                request.verdict(),
-                request.runtimeInMillis(),
-                request.runtimePercentile(),
-                request.memoryInKb(),
-                request.memoryPercentile(),
-                request.totalTestCases(),
-                request.passedTestCases()
-        );
-    }
 
     public record CodingSessionResponse(
             String sessionId,

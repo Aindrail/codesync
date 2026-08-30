@@ -53,7 +53,7 @@ class RecordSubmissionAttemptServiceTest {
     void shouldRecordSubmissionAttemptForExistingSession() {
 
         String sessionId =
-                SessionId.newId().value().toString().toString();
+                SessionId.newId().value().toString();
 
         CodingSession session =
                 createSession(
@@ -115,6 +115,7 @@ class RecordSubmissionAttemptServiceTest {
         SubmissionAttempt result =
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 sessionId,
                                 1,
                                 "LC-1001",
@@ -165,7 +166,7 @@ class RecordSubmissionAttemptServiceTest {
     void shouldAllowMultipleAttemptsForSameSessionWithDifferentFingerprints() {
 
         String sessionId =
-                SessionId.newId().value().toString().toString();
+                SessionId.newId().value().toString();
 
         CodingSession session =
                 createSession(
@@ -262,6 +263,7 @@ class RecordSubmissionAttemptServiceTest {
         SubmissionAttempt first =
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 sessionId,
                                 1,
                                 "LC-2001",
@@ -274,6 +276,7 @@ class RecordSubmissionAttemptServiceTest {
         SubmissionAttempt second =
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 sessionId,
                                 2,
                                 "LC-2002",
@@ -304,7 +307,7 @@ class RecordSubmissionAttemptServiceTest {
     void shouldRejectSameFingerprintForSameUser() {
 
         String sessionId =
-                SessionId.newId().value().toString().toString();
+                SessionId.newId().value().toString();
 
         User user =
                 User.reconstitute(
@@ -349,6 +352,7 @@ class RecordSubmissionAttemptServiceTest {
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 sessionId,
                                 1,
                                 "LC-3001",
@@ -382,7 +386,7 @@ class RecordSubmissionAttemptServiceTest {
     void shouldAllowSameFingerprintForDifferentUsers() {
 
         String sessionId =
-                SessionId.newId().value().toString().toString();
+                SessionId.newId().value().toString();
 
         User secondUser =
                 User.reconstitute(
@@ -448,6 +452,7 @@ class RecordSubmissionAttemptServiceTest {
         SubmissionAttempt result =
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                2L,
                                 sessionId,
                                 1,
                                 "LC-4001",
@@ -477,7 +482,7 @@ class RecordSubmissionAttemptServiceTest {
     void shouldRejectAttemptWhenSessionDoesNotExist() {
 
         String sessionId =
-                SessionId.newId().value().toString().toString();
+                SessionId.newId().value().toString();
 
         SourceCode sourceCode =
                 new SourceCode("return 1;");
@@ -493,6 +498,7 @@ class RecordSubmissionAttemptServiceTest {
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 sessionId,
                                 1,
                                 "LC-5001",
@@ -509,7 +515,63 @@ class RecordSubmissionAttemptServiceTest {
                         "Coding session not found."
                 );
 
-        verifyNoInteractions(codeFingerprintGenerator);
+        verifyNoInteractions(
+                codeFingerprintGenerator
+        );
+
+        verify(submissionAttemptRepository, never())
+                .save(any(), any());
+    }
+
+    @Test
+    void shouldRejectAttemptWhenSessionBelongsToDifferentUser() {
+
+        String sessionId =
+                SessionId.newId().value().toString();
+
+        User sessionOwner =
+                User.reconstitute(
+                        2L,
+                        "github-user-2"
+                );
+
+        CodingSession session =
+                createSession(sessionOwner);
+
+        SourceCode sourceCode =
+                new SourceCode("return 1;");
+
+        ExecutionResult executionResult =
+                createExecutionResult(
+                        SubmissionVerdict.ACCEPTED
+                );
+
+        when(codingSessionRepository.findBySessionId(any()))
+                .thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() ->
+                service.record(
+                        new RecordSubmissionAttemptCommand(
+                                1L,
+                                sessionId,
+                                1,
+                                "LC-5002",
+                                sourceCode,
+                                ProgrammingLanguage.JAVA,
+                                executionResult
+                        )
+                )
+        )
+                .isInstanceOf(
+                        ResourceNotFoundException.class
+                )
+                .hasMessage(
+                        "Coding session not found."
+                );
+
+        verifyNoInteractions(
+                codeFingerprintGenerator
+        );
 
         verify(submissionAttemptRepository, never())
                 .save(any(), any());
@@ -521,6 +583,7 @@ class RecordSubmissionAttemptServiceTest {
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 "",
                                 1,
                                 "LC-6001",
@@ -552,6 +615,7 @@ class RecordSubmissionAttemptServiceTest {
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 SessionId.newId().value().toString(),
                                 0,
                                 "LC-7001",
@@ -583,6 +647,7 @@ class RecordSubmissionAttemptServiceTest {
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 SessionId.newId().value().toString(),
                                 1,
                                 "LC-8001",
@@ -614,6 +679,7 @@ class RecordSubmissionAttemptServiceTest {
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 SessionId.newId().value().toString(),
                                 1,
                                 "LC-9001",
@@ -645,6 +711,7 @@ class RecordSubmissionAttemptServiceTest {
         assertThatThrownBy(() ->
                 service.record(
                         new RecordSubmissionAttemptCommand(
+                                1L,
                                 SessionId.newId().value().toString(),
                                 1,
                                 "LC-10001",
@@ -672,7 +739,7 @@ class RecordSubmissionAttemptServiceTest {
     void shouldSaveSolutionWithGeneratedFingerprint() {
 
         String sessionId =
-                SessionId.newId().value().toString().toString();
+                SessionId.newId().value().toString();
 
         User user =
                 User.reconstitute(
@@ -724,6 +791,7 @@ class RecordSubmissionAttemptServiceTest {
 
         service.record(
                 new RecordSubmissionAttemptCommand(
+                        1L,
                         sessionId,
                         1,
                         "LC-11001",
