@@ -59,6 +59,11 @@ public class RecordSubmissionAttemptService
                                         "Coding session not found."
                                 )
                         );
+        if (!session.user().id().equals(command.userId())) {
+            throw new ResourceNotFoundException(
+                    "Coding session not found."
+            );
+        }
 
         CodeFingerprint fingerprint =
                 codeFingerprintGenerator.generate(
